@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QoS Network Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .results h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .metric {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: white;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .metric-name {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .metric-value {
+            color: #667eea;
+            font-weight: 700;
+            font-size: 18px;
+        }
+        
+        .error {
+            padding: 15px;
+            background: #fee;
+            border: 1px solid #fcc;
+            border-radius: 5px;
+            color: #c33;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            display: none;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        /* History section styles removed */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QoS Network Tester</h1>
+        <p class="subtitle">Network Performance Benchmarking Tool</p>
+        
+        <form id="testForm">
+            <div class="form-group">
+                <label for="server_host">Server Host (IP or Hostname)</label>
+                <input type="text" id="server_host" name="server_host" placeholder="e.g., 192.168.1.100" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="server_port">Server Port</label>
+                <input type="number" id="server_port" name="server_port" value="5201" min="1" max="65535">
+            </div>
+            
+            <div class="form-group">
+                <label for="duration">Test Duration (seconds)</label>
+                <input type="number" id="duration" name="duration" value="10" min="1" max="60">
+            </div>
+            
+            <button type="submit" id="runButton">Run Test</button>
+        </form>
+        
+        <div class="loading" id="loading">
+            <p>Running test... Please wait.</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="results" id="results">
+            <h2>Test Results</h2>
+            <div class="metric">
+                <span class="metric-name">Bandwidth</span>
+                <span class="metric-value" id="bandwidth">-</span>
+            </div>
+            <div class="metric">
+                <span class="metric-name">Latency</span>
+                <span class="metric-value" id="latency">-</span>
+            </div>
+            <div class="metric">
+                <span class="metric-name">Jitter</span>
+                <span class="metric-value" id="jitter">-</span>
+            </div>
+            <div class="metric">
+                <span class="metric-name">Packet Loss</span>
+                <span class="metric-value" id="packet_loss">-</span>
+            </div>
+        </div>
+        
+        <!-- Recent Tests section removed -->
+    </div>
+    
+    <script>
+        const form = document.getElementById('testForm');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const error = document.getElementById('error');
+        const runButton = document.getElementById('runButton');
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Reset UI
+            loading.classList.add('show');
+            results.classList.remove('show');
+            error.classList.remove('show');
+            runButton.disabled = true;
+            
+            const formData = {
+                server_host: document.getElementById('server_host').value,
+                server_port: document.getElementById('server_port').value,
+                duration: document.getElementById('duration').value
+            };
+            
+            try {
+                const response = await fetch('/run-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Test failed');
+                }
+                
+                if (data.test_status === 'success') {
+                    // Display results
+                    document.getElementById('bandwidth').textContent = 
+                        data.bandwidth_mbps ? `${data.bandwidth_mbps.toFixed(2)} Mbps` : 'N/A';
+                    document.getElementById('latency').textContent = 
+                        data.latency_ms ? `${data.latency_ms.toFixed(2)} ms` : 'N/A';
+                    document.getElementById('jitter').textContent = 
+                        data.jitter_ms ? `${data.jitter_ms.toFixed(2)} ms` : 'N/A';
+                    document.getElementById('packet_loss').textContent = 
+                        data.packet_loss_percent ? `${data.packet_loss_percent.toFixed(2)}%` : 'N/A';
+                    
+                    results.classList.add('show');
+                } else {
+                    throw new Error(data.error || 'Test failed');
+                }
+            } catch (err) {
+                error.textContent = err.message;
+                error.classList.add('show');
+            } finally {
+                loading.classList.remove('show');
+                runButton.disabled = false;
+            }
+        });
+        // History section and related JS removed
+    </script>
+</body>
+</html>
